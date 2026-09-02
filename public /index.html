@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Grabber</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #151b23;
+    --edge: #262d38;
+    --text: #e8ecf1;
+    --muted: #8b96a5;
+    --accent: #ff5d3b;
+    --accent-dim: #6b2a1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #1a2230 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .brand .mark {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 650;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+  p.tag {
+    color: var(--muted);
+    margin: 0 0 36px;
+    font-size: 15px;
+  }
+  .card {
+    width: 100%;
+    max-width: 640px;
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 14px;
+    padding: 28px;
+  }
+  .row {
+    display: flex;
+    gap: 10px;
+  }
+  input[type="text"] {
+    flex: 1;
+    background: #0a0e14;
+    border: 1px solid var(--edge);
+    border-radius: 9px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: #1a0d08;
+    border: none;
+    border-radius: 9px;
+    padding: 0 22px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled {
+    background: var(--accent-dim);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+  .platforms {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    font-size: 12.5px;
+    color: var(--muted);
+    border: 1px solid var(--edge);
+    padding: 5px 10px;
+    border-radius: 100px;
+  }
+  .result {
+    margin-top: 26px;
+    display: none;
+  }
+  .result.show { display: block; }
+  .meta {
+    display: flex;
+    gap: 14px;
+  }
+  .meta img {
+    width: 120px;
+    height: 68px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--edge);
+  }
+  .meta-info { flex: 1; min-width: 0; }
+  .meta-info h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta-info .sub {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  select {
+    width: 100%;
+    margin-top: 16px;
+    background: #0a0e14;
+    border: 1px solid var(--edge);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 9px;
+    font-size: 14px;
+  }
+  .dl-btn {
+    width: 100%;
+    margin-top: 14px;
+    padding: 14px;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+  }
+  .status {
+    margin-top: 16px;
+    font-size: 13.5px;
+    color: var(--muted);
+    min-height: 18px;
+  }
+  .status.err { color: #ff7a68; }
+</style>
+</head>
+<body>
+
+  <div class="brand"><span class="mark"></span><h1>Video Grabber</h1></div>
+  <p class="tag">Paste a link, get the file. No sign-up.</p>
+
+  <div class="card">
+    <div class="row">
+      <input type="text" id="url" placeholder="https://... (YouTube, TikTok, Instagram, Facebook)">
+      <button id="fetchBtn">Fetch</button>
+    </div>
+    <div class="platforms">
+      <span class="chip">YouTube</span>
+      <span class="chip">TikTok</span>
+      <span class="chip">Instagram</span>
+      <span class="chip">Facebook</span>
+    </div>
+    <div class="status" id="status"></div>
+
+    <div class="result" id="result">
+      <div class="meta">
+        <img id="thumb" src="" alt="">
+        <div class="meta-info">
+          <h3 id="title"></h3>
+          <div class="sub" id="sub"></div>
+        </div>
+      </div>
+      <select id="formatSelect"></select>
+      <a class="dl-btn" id="downloadLink" href="#"><button style="width:100%;">Download</button></a>
+    </div>
+  </div>
+
+<script>
+  const urlInput = document.getElementById("url");
+  const fetchBtn = document.getElementById("fetchBtn");
+  const statusEl = document.getElementById("status");
+  const result = document.getElementById("result");
+  const thumb = document.getElementById("thumb");
+  const titleEl = document.getElementById("title");
+  const subEl = document.getElementById("sub");
+  const formatSelect = document.getElementById("formatSelect");
+  const downloadLink = document.getElementById("downloadLink");
+
+  function fmtSize(bytes) {
+    if (!bytes) return "";
+    const mb = bytes / (1024 * 1024);
+    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
+  }
+
+  function fmtDuration(s) {
+    if (!s) return "";
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  }
+
+  async function fetchInfo() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+    result.classList.remove("show");
+    statusEl.textContent = "Fetching video info...";
+    statusEl.classList.remove("err");
+    fetchBtn.disabled = true;
+    try {
+      const res = await fetch("/api/info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+
+      thumb.src = data.thumbnail || "";
+      titleEl.textContent = data.title || "Untitled";
+      subEl.textContent = [data.uploader, fmtDuration(data.duration)].filter(Boolean).join(" · ");
+
+      formatSelect.innerHTML = "";
+      data.formats.forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f.format_id;
+        opt.textContent = `${f.resolution} · ${f.ext}${f.filesize ? " · " + fmtSize(f.filesize) : ""}${f.note ? " · " + f.note : ""}`;
+        formatSelect.appendChild(opt);
+      });
+
+      updateDownloadLink(url);
+      formatSelect.onchange = () => updateDownloadLink(url);
+
+      result.classList.add("show");
+      statusEl.textContent = "";
+    } catch (err) {
+      statusEl.textContent = err.message || "Something went wrong";
+      statusEl.classList.add("err");
+    } finally {
+      fetchBtn.disabled = false;
+    }
+  }
+
+  function updateDownloadLink(url) {
+    const fmt = formatSelect.value;
+    downloadLink.href = `/api/download?url=${encodeURIComponent(url)}&format_id=${encodeURIComponent(fmt)}`;
+  }
+
+  fetchBtn.addEventListener("click", fetchInfo);
+  urlInput.addEventListener("keydown", (e) => { if (e.key === "Enter") fetchInfo(); });
+</script>
+</body>
+</html>
